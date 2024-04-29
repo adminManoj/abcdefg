@@ -1,0 +1,147 @@
+Step 1 :-
+
+Create new .net core web api project with .net 8.0
+
+Step 2 :-
+
+Install nuget packages 
+
+1. Microsoft.AspNet.WebApi.Core
+2. Microsoft.EntityFrameworkCore
+3. Microsoft.EntityFrameworkCore.Design
+4. Microsoft.EntityFrameworkCore.SqlServe
+5. Microsoft.EntityFrameworkCore.Tools
+
+
+Step 3 :-
+
+Create Model classes
+
+1. Add Models folder
+
+2. Add Users class 
+public class User
+{
+    public int UserId { get; set; } = 0;
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public string Email { get; set; }
+    public string Password { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedOn { get; set; } = DateTime.Now;
+}
+
+3. Add UserDTO class 
+public class UserDTO
+{
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public string Email { get; set; }
+    public string Password { get; set; }
+}
+
+4. Add LoginDTO 
+public class LoginDTO
+{
+    public string Email { get; set; }
+    public string Password { get; set; }
+}
+
+
+Step 4 :-
+
+Add connectionstring in appsettings.json
+
+ "ConnectionStrings": {
+   "DBCS": "Data Source=DESKTOP-2EN9JEA;Initial Catalog=MyBlogApp; Integrated Security=true; TrustServerCertificate=true"
+ },
+ 
+ 
+Step 5:-
+
+Add DbContext class 
+
+public class MyDbContext : DbContext
+{
+    public MyDbContext(DbContextOptions<MyDbContext> options) : base(options) 
+    {
+        
+    }
+    public DbSet<User> Users { get; set; }
+}
+
+Step 6 :-
+
+Run Migration
+
+Step 7 :-
+
+Run update-database
+
+Step 8:-
+
+Add Controller : UserController
+
+private readonly BlogDbContext dbContext;
+public UserController(BlogDbContext dbContext)
+{
+    this.dbContext = dbContext;
+}
+
+[HttpPost]
+[Route("Register")]
+public IActionResult Register(UserDTO user)
+{
+    if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+    var objUser = dbContext.Users.FirstOrDefault(u => u.Email == user.Email);
+    if (objUser == null)
+    {
+        dbContext.Users.Add(new User 
+        { FirstName = user.FirstName, LastName = user.LastName, Email = user.Email , Password = user.Password });
+        dbContext.SaveChanges();
+        return Ok("User registered successfully.");
+    }
+    else
+    {
+        return BadRequest("User already registered with the same Email.");
+    }
+}
+
+[HttpPost]
+[Route("Login")]
+public IActionResult Login(LoginDTO user)
+{
+    var validUser = dbContext.Users.FirstOrDefault(u => u.Email == user.Email && u.Password == user.Password && u.IsActive == true);
+    if (validUser == null)
+        return NotFound();
+    return Ok(validUser);
+}
+
+[HttpGet]
+[Route("GetUserProfile")]
+public IActionResult GetUserProfile(int userId)
+{
+    var user = dbContext.Users.FirstOrDefault(u => u.UserId == userId);
+    if (user == null)
+        return NotFound();
+
+    return Ok(user);
+}
+
+[HttpGet]
+[Route("GetUsers")]
+public IActionResult GetUsers()
+{
+    var users = dbContext.Users.ToList();
+    if (users == null)
+        return NotFound();
+
+    return Ok(users);
+}
+
+
+
+
+ 
