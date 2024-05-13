@@ -63,11 +63,11 @@ Adding JWT (JSON Web Token) authentication to a .NET Core application involves s
 3. 	Add JWT Secret and Issuer to Configuration:
 	In your appsettings.json or appsettings.Development.json, add the JWT secret and issuer details:
 
-	{
-	  "Jwt": {
-		"Key": "your_secret_key_here",
-		"Issuer": "your_issuer_here"
-	  }
+	"Jwt": {
+	  "Key": "Yh2k7QSu4l8CZg5p6X3Pna9L0Miy4D3Bvt0JVr87UcOj69Kqw5R2Nmf4FWs03Hdx",
+	  "Issuer": "JWTAuthenticationServer",
+	  "Audience": "JWTServicePostmanClient",
+	  "Subject": "JWTServiceAccessToken"
 	}
 	
 	This JSON snippet represents a configuration section for JWT (JSON Web Token) settings in an ASP.NET Core application.  Let's go through each key:
