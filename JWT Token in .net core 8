@@ -1,0 +1,231 @@
+Adding JWT (JSON Web Token) authentication to a .NET Core application involves several steps. Here's a basic outline:
+
+1. Install Required Packages:
+   Ensure you have the necessary NuGet packages installed. You'll need Microsoft.AspNetCore.Authentication.JwtBearer.
+   
+2. Configure JWT Authentication in Startup.cs:
+
+   Inside the ConfigureServices method of your Startup.cs, add JWT authentication: If you are using any lower version then you might have startup.cs if not then you will have 
+   program.cs so add the below code accordingly.
+
+	
+	builder.Services.AddAuthentication(options =>
+	{
+		options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+		options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+	}).AddJwtBearer(options =>
+	{
+		options.TokenValidationParameters = new TokenValidationParameters
+		{
+			ValidateIssuer = true,
+			ValidateAudience = true,
+			ValidateLifetime = true,
+			ValidateIssuerSigningKey = true,
+			ValidIssuer = builder.Configuration["Jwt:Issuer"],
+			ValidAudience = builder.Configuration["Jwt:Audience"],
+			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+		};
+	});  
+	
+	
+	This block of code is configuring JWT (JSON Web Token) authentication in an ASP.NET Core application. Let's break it down step by step:
+
+	services.AddAuthentication(...):
+	
+	This method call configures the authentication services for the ASP.NET Core application. It's typically done in the ConfigureServices method of the Startup class.
+	
+	options.DefaultAuthenticateScheme: This sets the default authentication scheme used for authenticating users. In this case, it's set to JwtBearerDefaults.AuthenticationScheme, 
+	which indicates that JWT bearer authentication will be used.
+	
+	options.DefaultChallengeScheme: This sets the default scheme used for challenging unauthorized requests. Again, it's set to JwtBearerDefaults.AuthenticationScheme, ensuring that 
+	JWT bearer authentication handles challenges.
+	
+	.AddJwtBearer(...):
+	
+	This method is specifically configuring the JWT bearer authentication options.
+	
+	options.TokenValidationParameters: This property allows you to specify parameters for validating JWT tokens.
+	
+	ValidateIssuer, ValidateAudience, ValidateLifetime, ValidateIssuerSigningKey: These properties specify whether to validate the issuer, audience, lifetime, and the cryptographic 
+	signature of the token, respectively.
+		
+	ValidIssuer, ValidAudience: These properties specify the valid issuer and audience for the JWT tokens. They typically come from the application configuration 
+	
+	(Configuration["Jwt:Issuer"] and Configuration["Jwt:Issuer"]), allowing you to define them in the app settings.
+	
+	IssuerSigningKey: This property specifies the key used to sign the JWT tokens. It's set to a SymmetricSecurityKey initialized with the byte array representation of the JWT key 
+	obtained from the configuration (Configuration["Jwt:Key"]).
+	
+	By configuring these options, the ASP.NET Core application is set up to authenticate incoming requests using JWT tokens. The token's issuer, audience, lifetime, and signature 
+	are validated based on the provided parameters, and requests are authenticated if the token is valid.
+
+		
+3. 	Add JWT Secret and Issuer to Configuration:
+	In your appsettings.json or appsettings.Development.json, add the JWT secret and issuer details:
+
+	{
+	  "Jwt": {
+		"Key": "your_secret_key_here",
+		"Issuer": "your_issuer_here"
+	  }
+	}
+	
+	This JSON snippet represents a configuration section for JWT (JSON Web Token) settings in an ASP.NET Core application.  Let's go through each key:
+
+	Jwt: This is a top-level key in the JSON object, indicating that the following properties are related to JWT configuration.
+	
+	Key: This property specifies the secret key used to sign JWT tokens. It's a long, randomly-generated string ("Yh2k7QSu4l8CZg5p6X3Pna9L0Miy4D3Bvt0JVr87UcOj69Kqw5R2Nmf4FWs03Hdx" 
+	in this case). The secret key is crucial for ensuring the security and integrity of the JWT tokens.
+	
+	Issuer: This property specifies the issuer of the JWT tokens. The issuer is the entity responsible for issuing the tokens. In this example, the issuer is set to
+	"JWTAuthenticationServer".
+	
+	Audience: This property specifies the intended audience for the JWT tokens. The audience is the recipient or recipients for whom the token is intended. In this example, 
+	the audience is set to "JWTServicePostmanClient".
+	
+	Subject: This property specifies the subject of the JWT tokens. The subject typically represents the user or entity associated with the token. In this case, the subject is 
+	set to "JWTServiceAccessToken".
+	
+	These settings provide essential parameters for JWT token generation, including the secret key, issuer, audience, and subject. They are used by the application to create and 
+	validate JWT tokens during authentication processes. It's important to keep the secret key secure and ensure that the issuer, audience, and subject values are appropriate for
+	your application's authentication requirements.
+
+	
+4. 	 Generate JWT Token:
+	You'll need a method to generate JWT tokens. Here's a basic example:
+
+	[HttpPost]
+	[Route("Login")]
+	public IActionResult Login(LoginDTO employee)
+	{
+	EmployeeBAL employeeBAL = new EmployeeBAL();
+	SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("DBCS").ToString());
+	Response response = employeeBAL.Login(employee, connection);
+
+	if (response != null && response.StatusCode == 200)
+	{
+		var claims = new[] {
+				new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
+				new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+				new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()),
+				new Claim("UserId", response.employee.EmployeeID.ToString()),
+				new Claim("Email",  response.employee.Email)
+			};
+
+		var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+		var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+		var token = new JwtSecurityToken(
+			_configuration["Jwt:Issuer"],
+			_configuration["Jwt:Audience"],
+			claims,
+			expires: DateTime.UtcNow.AddMinutes(60),
+			signingCredentials: signIn);
+		string tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
+		return Ok(new { Token = tokenValue, Response = response });
+	}
+	else
+		return new NoContentResult();
+	}
+	
+	This code snippet is generating a JWT (JSON Web Token) based on the provided claims and configuration settings. Let's break it down step by step:
+
+	Here, you're defining an array of claims. Claims are statements about an entity (typically the user) and additional data. In this array:
+
+	JwtRegisteredClaimNames.Sub: Represents the subject of the JWT, usually the user ID or some unique identifier.
+	JwtRegisteredClaimNames.Jti: Represents the JWT ID, a unique identifier for the token.
+	JwtRegisteredClaimNames.Iat: Represents the issued-at time of the token.
+	UserId: Represents the user's ID, typically extracted from the response object.
+	Email: Represents the user's email address, also extracted from the response object.
+
+
+	var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+	var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+	
+	Here, you're creating a symmetric security key using the JWT key specified in the configuration. This key will be used to sign the JWT token. The SigningCredentials 
+	object is then created using this key and the HMACSHA256 algorithm.
+
+	var token = new JwtSecurityToken(
+	_configuration["Jwt:Issuer"],
+	_configuration["Jwt:Audience"],
+	claims,
+	expires: DateTime.UtcNow.AddMinutes(60),
+	signingCredentials: signIn);
+
+	This part creates the JWT token itself using the JwtSecurityToken class. The constructor parameters are:
+
+	Issuer (_configuration["Jwt:Issuer"]): The entity that issued the JWT.
+	
+	Audience (_configuration["Jwt:Audience"]): The intended audience for the JWT.
+	
+	Claims: The array of claims created earlier.
+	
+	Expiration time: The token expiration time, set to 60 minutes from the current UTC time.
+	
+	Signing credentials: The SigningCredentials object created earlier.
+	
+	string tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
+	return Ok(new { Token = tokenValue, Response = response });
+
+	Finally, the JWT token is serialized to a string using the JwtSecurityTokenHandler().WriteToken() method. The token is then returned along with the response object in an 
+	HTTP 200 (OK) response.
+
+	This code effectively generates a JWT token with the specified claims and configuration settings, which can be used for authentication and authorization purposes in your 
+	application.
+
+	
+5. Use Authentication Middleware:
+   In your Configure method in Startup.cs, use the authentication middleware:
+   
+   app.UseAuthentication();
+   
+	The app.UseAuthentication() method is part of configuring authentication middleware in an ASP.NET Core application. Let's break down its significance:
+
+	Middleware: In ASP.NET Core, middleware components are software components that are executed in the pipeline to handle requests and responses. Middleware components can perform 
+	operations such as request processing, authentication, logging, and more.
+	
+	Authentication Middleware: Authentication middleware is a type of middleware component responsible for authenticating requests. It intercepts incoming requests, examines 
+	authentication headers or tokens, and performs authentication based on configured authentication schemes.
+	
+	UseAuthentication() Method: This method is part of the IApplicationBuilder interface in ASP.NET Core. It's used to add the authentication middleware to the request processing 
+	pipeline. When called, it instructs ASP.NET Core to use authentication middleware to process incoming requests.By placing app.UseAuthentication() in the Configure method of 
+	the Startup class, you're ensuring that authentication middleware is applied to all incoming requests in your application.
+	
+	Ordering of Middleware: The order in which middleware components are added to the pipeline matters. app.UseAuthentication() should be called before any middleware components 
+	that require authentication, such as authorization middleware (app.UseAuthorization()) or MVC middleware (app.UseEndpoints() for MVC applications).This ensures that
+	authentication is performed early in the request processing pipeline, allowing subsequent middleware components to make authorization decisions based on the authenticated user.
+	
+	In summary, app.UseAuthentication() is a critical part of setting up authentication in an ASP.NET Core application. It adds authentication middleware to the request processing 
+	pipeline, enabling the application to authenticate incoming requests before they're further processed by other middleware components.
+
+   
+6. Protect Your Endpoints:
+   You can protect your endpoints by using the [Authorize] attribute:   
+
+	[Authorize]
+	[HttpGet]
+	public IActionResult Protected()
+	{
+	// Your protected code here
+	}
+
+	[Authorize] Attribute:
+	
+	This attribute is used to specify that access to the associated controller action (or controller) requires authentication.
+	
+	When applied to a controller action, it means that only authenticated users are allowed to access that action.
+	
+	If a user tries to access the action without being authenticated, they will receive an HTTP 401 Unauthorized response.
+	
+	You can also specify roles or policies with [Authorize(Roles = "RoleName")] or [Authorize(Policy = "PolicyName")], restricting access to users with specific roles or those 
+	who meet certain policy requirements.
+
+    So, the combined use of [Authorize] in the code snippet means that the Protected action can only be accessed by authenticated users via HTTP GET requests. 
+	If an unauthenticated user attempts to access this action, they will be denied access.
+
+
+7. Sending JWT Token:
+   When the user logs in successfully, generate a JWT token and send it back to the client. The client will then include this token in the header of subsequent requests.
+   This is a basic setup to get you started. Depending on your specific requirements, you might need to customize it further.
+
+	
+	
