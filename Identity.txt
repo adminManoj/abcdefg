@@ -1,0 +1,379 @@
+Step 1: Create a New ASP.NET Core MVC Project
+	1.	Open Visual Studio 2022.
+	2.	Click Create a new project.
+	3.	Select ASP.NET Core Web App (Model-View-Controller) and click Next.
+	4.	Name your project, select the location, and click Next.
+	5.	Choose .NET 8.0 (Long-term support) as the framework.
+	6.	Check the box Authentication: Individual Accounts to set up ASP.NET Core Identity.
+	7.	Click Create.
+	8.	
+	Step 2: Configure Identity and Database
+	ASP.NET Core Identity is already integrated with the project. Now you need to set up the database and migrations:
+	1.	Open appsettings.json and configure the connection string for your database:
+	  "ConnectionStrings": {
+		"DefaultConnection": "Server=DESKTOP-2EN9JEA;Database=aspnet-Demo3-ead7a579-c1c4-4361-8aa9-923247113408; Integrated Security=true; Encrypt=true; TrustServerCertificate=true; MultipleActiveResultSets=true"
+
+	2.	Open Package Manager Console (Tools > NuGet Package Manager > Package Manager Console) and run the following commands to add migrations and update the database:
+	bash
+	Copy code
+	Add-Migration InitialCreate
+	Update-Database
+	This will create the Identity tables for user authentication and authorization in your database.
+
+	Packages :
+	Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore
+	Microsoft.AspNetCore.Identity.EntityFrameworkCore
+	Microsoft.EntityFrameworkCore.SqlServer
+	Microsoft.EntityFrameworkCore.Tools
+	Microsoft.AspNetCore.Identity.UI
+
+	Step 3: Implement Employee CRUD Operations
+	1.	Create the Employee Model: In the Models folder, create a new class Employee.cs:
+	csharp
+	Copy code
+	public class Employee
+	{
+		public int Id { get; set; }
+		public string Name { get; set; }
+		public string Email { get; set; }
+		public string Phone { get; set; }
+	}
+	2.	Add the DbSet in ApplicationDbContext: Open ApplicationDbContext.cs in the Data folder and add the DbSet for employees:
+	csharp
+	Copy code
+	public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+	{
+		public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+			: base(options)
+		{
+		}
+
+		public DbSet<Employee> Employees { get; set; }
+	}
+
+3.	Add EmployeeController: In the Controllers folder, add a new controller named EmployeeController:
+
+public class EmployeeController : Controller
+{
+    private readonly ApplicationDbContext _context;
+
+    public EmployeeController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    // GET: Employee
+    public async Task<IActionResult> Index()
+    {
+        return View(await _context.Employees.ToListAsync());
+    }
+
+    // GET: Employee/Create
+    public IActionResult Create()
+    {
+        return View();
+    }
+
+    // POST: Employee/Create
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create([Bind("Id,Name,Email,Phone")] Employee employee)
+    {
+        if (ModelState.IsValid)
+        {
+            _context.Add(employee);
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+        return View(employee);
+    }
+
+    // GET: Employee/Edit/5
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (id == null)
+        {
+            return NotFound();
+        }
+
+        var employee = await _context.Employees.FindAsync(id);
+        if (employee == null)
+        {
+            return NotFound();
+        }
+        return View(employee);
+    }
+
+    // POST: Employee/Edit/5
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Email,Phone")] Employee employee)
+    {
+        if (id != employee.Id)
+        {
+            return NotFound();
+        }
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                _context.Update(employee);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EmployeeExists(employee.Id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            return RedirectToAction(nameof(Index));
+        }
+        return View(employee);
+    }
+
+    // GET: Employee/Delete/5
+    public async Task<IActionResult> Delete(int? id)
+    {
+        if (id == null)
+        {
+            return NotFound();
+        }
+
+        var employee = await _context.Employees
+            .FirstOrDefaultAsync(m => m.Id == id);
+        if (employee == null)
+        {
+            return NotFound();
+        }
+
+        return View(employee);
+    }
+
+    // POST: Employee/Delete/5
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(int id)
+    {
+        var employee = await _context.Employees.FindAsync(id);
+        if (employee == null)
+        {
+            return NotFound();
+        }
+
+        _context.Employees.Remove(employee);
+        await _context.SaveChangesAsync();
+
+        // Redirect to the Index after successful deletion
+        return RedirectToAction(nameof(Index));
+    }
+
+    private bool EmployeeExists(int id)
+    {
+        return _context.Employees.Any(e => e.Id == id);
+    }
+}
+
+
+views :
+
+index  =>
+
+@model IEnumerable<Demo3.Models.Employee>
+
+<h2>Employees</h2>
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>@item.Email</td>
+                <td>@item.Phone</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id">Edit</a> |
+                    <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+@model IEnumerable<Demo3.Models.Employee>
+
+<h2>Employees</h2>
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>@item.Email</td>
+                <td>@item.Phone</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@item.Id">Edit</a> |
+                    <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+@model Demo3.Models.Employee
+
+@{
+    ViewData["Title"] = "Edit Employee";
+}
+
+<h2>Edit Employee</h2>
+
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+    <div class="form-group">
+        <label asp-for="Name" class="control-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="Email" class="control-label"></label>
+        <input asp-for="Email" class="form-control" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+    <div class="form-group">
+        <label asp-for="Phone" class="control-label"></label>
+        <input asp-for="Phone" class="form-control" />
+        <span asp-validation-for="Phone" class="text-danger"></span>
+    </div>
+    <div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+
+@model Demo3.Models.Employee
+
+@{
+    ViewData["Title"] = "Delete Employee";
+}
+
+<h2>Delete Employee</h2>
+
+<div>
+    <h4>Employee</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">Name</dt>
+        <dd class="col-sm-10">@Model.Name</dd>
+        <dt class="col-sm-2">Email</dt>
+        <dd class="col-sm-10">@Model.Email</dd>
+        <dt class="col-sm-2">Phone</dt>
+        <dd class="col-sm-10">@Model.Phone</dd>
+    </dl>
+</div>
+
+<h4>Are you sure you want to delete this employee?</h4>
+<form asp-action="Delete" method="post">
+    <!-- Change here to point to Delete -->
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>
+
+
+
+Deleted confirm :
+
+@model Demo3.Models.Employee
+
+@{
+    ViewData["Title"] = "Delete Confirmed";
+}
+
+<h2>Employee Deleted</h2>
+
+<div>
+    <h4>Employee has been deleted successfully.</h4>
+    <p>
+        <a asp-action="Index" class="btn btn-primary">Back to Employee List</a>
+    </p>
+</div>
+
+
+_layout :-
+
+ <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+     <ul class="navbar-nav flex-grow-1">
+         <li class="nav-item">
+             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+         </li>
+         
+             <li class="nav-item">
+                 <a class="nav-link" asp-area="" asp-controller="Employee" asp-action="Index">Manage Employees</a>
+             </li>
+        
+         <li class="nav-item">
+             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+         </li>
+     </ul>
+     <partial name="_LoginPartial" />
+ </div>
+ 
+ @if (User.Identity.IsAuthenticated)
+         {
+             <li class="nav-item">
+                 <a class="nav-link" asp-area="" asp-controller="Employee" asp-action="Index">Manage Employees</a>
+             </li>
+         }
+ 
+ _LoginPartial :-
+ 
+  <li class="nav-item">
+     <form  class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+         <button  type="submit" class="nav-link btn btn-link text-dark">Logout</button>
+     </form>
+ </li>
+ 
+ Program.cs =>
+ 
+ // Add services to the container.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
+builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
+    .AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.AddControllersWithViews();
